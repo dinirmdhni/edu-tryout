@@ -1,8 +1,0 @@
-<?xml version = '1.0' encoding = 'UTF-8'?>
-<OSDM_Design class="oracle.dbtools.crest.model.design.Design" name="Edu Tryout" id="D7ABA375-C163-326F-867E-CE26F0CE83F8" version="3.5">
-<createdBy>Dini Ramadhani</createdBy>
-<createdTime>2026-11-02 06:20:01 UTC</createdTime>
-<ownerDesignName>Edu Tryout</ownerDesignName>
-<capitalNames>false</capitalNames>
-<designId>D7ABA375-C163-326F-867E-CE26F0CE83F8</designId>
-</OSDM_Design>
