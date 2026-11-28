@@ -14,8 +14,9 @@ Persiapan:
 Catatan:
 - Verifikasi pembayaran dilakukan manual oleh admin setelah mengecek bukti transfer
   dan rekening lembaga di luar aplikasi.
-- ID dibuat dengan MAX(id) + 1 agar mudah dipahami untuk proyek CLI satu pengguna.
 """
+
+import email
 
 import psycopg2
 from datetime import datetime
@@ -74,17 +75,6 @@ def jalankan_query(query, data=None, ambil_data=False):
         conn.close()
 
 
-def id_baru(nama_tabel, nama_kolom):
-    """Membuat ID berikutnya berdasarkan ID terbesar pada tabel."""
-    query = f"SELECT COALESCE(MAX({nama_kolom}), 0) + 1 FROM {nama_tabel}"
-    hasil = jalankan_query(query, ambil_data=True)
-
-    if hasil is None:
-        return None
-
-    return hasil[0][0]
-
-
 def garis():
     print("=" * 55)
 
@@ -93,19 +83,26 @@ def jeda():
     input("\nTekan ENTER untuk melanjutkan...")
 
 
-def input_teks(teks):
+def input_teks(teks, boleh_batal=False):
     """Meminta teks yang wajib diisi."""
     while True:
         data = input(teks).strip()
-        if data:
+
+        if boleh_batal and data == "0":
+            return None
+        elif data:
             return data
+
         print("Input tidak boleh kosong. Silakan isi kembali.")
 
 
-def input_email():
-    """Memeriksa format email secara sederhana."""
+def input_email(boleh_batal=False):
     while True:
         email = input("Email        : ").strip()
+
+        if boleh_batal and email == "0":
+            return None
+
         pola_email = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
         if re.fullmatch(pola_email, email):
@@ -115,21 +112,27 @@ def input_email():
         print("Contoh: nama@gmail.com atau nama@yahoo.com")
 
 
-def input_password():
+def input_password(boleh_batal=False):
     """Memeriksa panjang minimum password."""
     while True:
         password = input("Password     : ").strip()
 
-        if len(password) >= 6:
+        if boleh_batal and password == "0":
+            return None
+
+        elif len(password) >= 6:
             return password
 
         print("Password minimal terdiri dari 6 karakter.")
 
 
-def input_angka(teks):
+def input_angka(teks, boleh_batal=False):
     """Meminta input berupa bilangan bulat."""
     while True:
         data = input(teks).strip()
+
+        if boleh_batal and data == "0":
+            return None
 
         try:
             return int(data)
@@ -137,32 +140,30 @@ def input_angka(teks):
             print("Input harus berupa angka. Silakan coba lagi.")
 
 
-def input_harga(teks):
+def input_harga(teks, boleh_batal=False):
     while True:
-        try:
-            harga = float(input(teks))
+        harga = input(teks).strip()
 
-            if harga < 10000:
-                print("Harga paket minimal Rp10.000.")
-            else:
-                return harga
+        if boleh_batal and harga == "0":
+            return None
 
-        except ValueError:
-            print("Harga harus berupa angka tanpa titik atau tulisan Rp.")
+        if harga.isdigit() and int(harga) >= 10000:
+            return int(harga)
+
+        print("Harga paket minimal Rp10.000.")
 
 
-def input_durasi(teks):
+def input_durasi(teks, boleh_batal=False):
     while True:
-        try:
-            durasi = int(input(teks))
+        durasi = input(teks).strip()
 
-            if durasi <= 10:
-                print("Durasi tidak valid. Durasi harus di atas 10 menit.")
-            else:
-                return durasi
+        if boleh_batal and durasi == "0":
+            return None
 
-        except ValueError:
-            print("Durasi harus berupa angka.")
+        if durasi.isdigit() and int(durasi) >= 10:
+            return int(durasi)
+
+        print("Durasi paket minimal 10 menit.")
 
 
 def input_pilihan(teks, pilihan_valid):
@@ -177,9 +178,12 @@ def input_pilihan(teks, pilihan_valid):
         )
 
 
-def input_teks_huruf(teks):
+def input_teks_huruf(teks, boleh_batal=False):
     while True:
         data = input(teks).strip()
+
+        if boleh_batal and data == "0":
+            return None
 
         if not data:
             print("Input tidak boleh kosong.")
@@ -189,11 +193,13 @@ def input_teks_huruf(teks):
             return data
         
 
-def input_nama():
+def input_nama(boleh_batal=False):
     while True:
         nama = input("Nama lengkap : ").strip()
 
-        if not nama:
+        if boleh_batal and nama == "0":
+            return None
+        elif not nama:
             print("Nama lengkap tidak boleh kosong.")
         elif not all(huruf.isalpha() or huruf.isspace() for huruf in nama):
             print("Nama hanya boleh berisi huruf dan spasi.")
@@ -262,22 +268,17 @@ def registrasi_peserta():
         print("Username sudah digunakan. Silakan gunakan username lain.")
         return
 
-    # Role 3 pada data awal adalah Peserta.
-    id_pengguna = id_baru("pengguna", "id_pengguna")
-
-    if id_pengguna is None:
-        return
 
     query = """
         INSERT INTO pengguna
-        (id_pengguna, nama_pengguna, email, username, password, id_role)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """
+        (nama_pengguna, email, username, password, id_role)
+        VALUES (%s, %s, %s, %s, %s)
+  """
 
     berhasil = jalankan_query(
         query,
-        (id_pengguna, nama, email, username, password, 3)
-    )
+        (nama, email, username, password, 3)
+   )
 
     if berhasil is not None:
         print("\nRegistrasi berhasil!")
@@ -334,6 +335,7 @@ def tampilkan_paket():
                p.harga_paket, p.durasi_waktu, u.nama_pengguna
         FROM paket_tryout p
         JOIN pengguna u ON p.id_pengguna = u.id_pengguna
+        WHERE p.status_aktif = TRUE
         ORDER BY p.id_paket
     """
 
@@ -358,13 +360,19 @@ def tampilkan_paket():
 def daftar_paket(id_pengguna):
     tampilkan_paket()
 
+    print("Masukkan 0 untuk kembali ke menu peserta.")
     id_paket = input_angka("\nMasukkan ID paket yang dipilih: ")
+
+    if id_paket == 0:
+        print("Pendaftaran dibatalkan.")
+        return
 
     paket = jalankan_query(
         """
         SELECT id_paket, harga_paket
         FROM paket_tryout
-        WHERE id_paket = %s
+        WHERE id_paket = %s 
+          AND status_aktif = TRUE
         """,
         (id_paket,),
         True
@@ -399,12 +407,17 @@ def daftar_paket(id_pengguna):
     print("\nPilih Metode Pembayaran:")
     print("1. Tunai")
     print("2. Non Tunai")
+    print("0. Kembali ke menu peserta")
 
     pilihan = input_pilihan(
-        "Pilih metode pembayaran (1/2): ",
-        ["1", "2"]
+        "Pilih metode pembayaran (1/2/0): ",
+        ["1", "2", "0"]
     )
 
+    if pilihan == "0":
+        print("Pendaftaran dibatalkan.")
+        return
+    
     if pilihan == "1":
         metode = "Tunai"
     else:
@@ -420,33 +433,26 @@ def daftar_paket(id_pengguna):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT COALESCE(MAX(id_pendaftaran), 0) + 1 FROM pendaftaran"
-            )
-            id_pendaftaran = cur.fetchone()[0]
-
-            cur.execute(
-                "SELECT COALESCE(MAX(id_pembayaran), 0) + 1 FROM pembayaran"
-            )
-            id_pembayaran = cur.fetchone()[0]
-
-            cur.execute(
                 """
                 INSERT INTO pendaftaran
-                (id_pendaftaran, tanggal_pendaftaran, status_pendaftaran,
-                 id_pengguna, id_paket)
-                VALUES (%s, CURRENT_DATE, 'Menunggu', %s, %s)
+                (tanggal_pendaftaran, status_pendaftaran,
+                id_pengguna, id_paket)
+                VALUES (CURRENT_DATE, 'Menunggu', %s, %s)
+                RETURNING id_pendaftaran
                 """,
-                (id_pendaftaran, id_pengguna, id_paket)
+                (id_pengguna, id_paket)
             )
+
+            id_pendaftaran = cur.fetchone()[0]
 
             cur.execute(
                 """
                 INSERT INTO pembayaran
-                (id_pembayaran, tanggal_pembayaran, jumlah_pembayaran,
-                 metode_pembayaran, status_pembayaran, id_pendaftaran)
-                VALUES (%s, CURRENT_TIMESTAMP, %s, %s, 'Menunggu', %s)
+                (tanggal_pembayaran, jumlah_pembayaran,
+                metode_pembayaran, status_pembayaran, id_pendaftaran)
+                VALUES (CURRENT_TIMESTAMP, %s, %s, 'Menunggu', %s)
                 """,
-                (id_pembayaran, harga, metode, id_pendaftaran)
+                (harga, metode, id_pendaftaran)
             )
 
         conn.commit()
@@ -511,6 +517,7 @@ def kerjakan_tryout(id_pengguna):
         WHERE pt.id_pengguna = %s
           AND pt.status_pendaftaran = 'Diterima'
           AND pb.status_pembayaran = 'Berhasil'
+          AND pk.status_aktif = TRUE
         ORDER BY pt.id_pendaftaran
     """
 
@@ -568,6 +575,7 @@ def kerjakan_tryout(id_pengguna):
                pilihan_c, pilihan_d, kunci_jawaban
         FROM soal
         WHERE id_paket = %s
+          AND status_aktif = TRUE
         ORDER BY id_soal
         """,
         (id_paket,),
@@ -581,27 +589,23 @@ def kerjakan_tryout(id_pengguna):
         print("Belum ada soal untuk paket ini.")
         return
 
-    id_pengerjaan = id_baru(
-        "pengerjaan_tryout", "id_pengerjaan"
-    )
-
-    if id_pengerjaan is None:
-        return
-
     # Mencatat pengerjaan tryout sebelum peserta menjawab soal.
     hasil_pengerjaan = jalankan_query(
         """
         INSERT INTO pengerjaan_tryout
-        (id_pengerjaan, waktu_mulai, waktu_selesai,
-         status_pengerjaan, id_pendaftaran)
-        VALUES (%s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-         %s, %s)
+        (waktu_mulai, waktu_selesai,
+        status_pengerjaan, id_pendaftaran)
+        VALUES (CURRENT_TIMESTAMP, NULL, %s, %s)
+        RETURNING id_pengerjaan
         """,
-        (id_pengerjaan, "Sedang Berlangsung", id_pendaftaran)
-    )
+        ("Sedang Berlangsung", id_pendaftaran),
+        True
+  )
 
     if hasil_pengerjaan is None:
         return
+
+    id_pengerjaan = hasil_pengerjaan[0][0]
 
     print(f"\nPaket: {pilihan[2]}")
     print(f"Jumlah soal: {len(soal)}")
@@ -638,20 +642,14 @@ def kerjakan_tryout(id_pengguna):
         if status_benar:
             jumlah_benar += 1
 
-        id_jawaban = id_baru("jawaban", "id_jawaban")
-
-        if id_jawaban is None:
-            return
-
         hasil_jawaban = jalankan_query(
             """
             INSERT INTO jawaban
-            (id_jawaban, jawaban_peserta, status_benar,
-             id_pengerjaan, id_soal)
-            VALUES (%s, %s, %s, %s, %s)
+            (jawaban_peserta, status_benar,
+            id_pengerjaan, id_soal)
+            VALUES (%s, %s, %s, %s)
             """,
-            (id_jawaban, jawaban, status_benar,
-             id_pengerjaan, id_soal)
+            (jawaban, status_benar, id_pengerjaan, id_soal)
         )
 
         if hasil_jawaban is None:
@@ -675,18 +673,13 @@ def kerjakan_tryout(id_pengguna):
     if hasil_update is None:
         return
 
-    id_hasil = id_baru("hasil_tryout", "id_hasil")
-
-    if id_hasil is None:
-        return
-
     hasil_simpan = jalankan_query(
         """
         INSERT INTO hasil_tryout
-        (id_hasil, nilai, jumlah_benar, jumlah_salah, id_pengerjaan)
-        VALUES (%s, %s, %s, %s, %s)
+        (nilai, jumlah_benar, jumlah_salah, id_pengerjaan)
+        VALUES (%s, %s, %s, %s)
         """,
-        (id_hasil, nilai, jumlah_benar, jumlah_salah, id_pengerjaan)
+        (nilai, jumlah_benar, jumlah_salah, id_pengerjaan)
     )
 
     if hasil_simpan is None:
@@ -796,44 +789,154 @@ def tambah_paket(id_pengajar):
 
     garis()
     print("TAMBAH PAKET TRYOUT")
+    print("Masukkan 0 kapan saja untuk kembali ke menu pengajar.")
     garis()
 
-    nama = input_teks_huruf("Nama paket       : ")
-    deskripsi = input_teks_huruf("Deskripsi paket  : ")
+    nama = input_teks_huruf("Nama paket       : ", True)
+    if nama is None:
+        print("Penambahan paket dibatalkan.")
+        return
+
+    deskripsi = input_teks("Deskripsi paket  : ", True)
+    if deskripsi is None:
+        print("Penambahan paket dibatalkan.")
+        return
+
     print("Masukkan harga tanpa titik atau tulisan Rp (contoh: 30000).")
-    harga = input_harga("Harga paket      : ")
-    durasi = input_durasi("Durasi paket (menit): ")
+    harga = input_harga("Harga paket      : ", True)
+    if harga is None:
+        print("Penambahan paket dibatalkan.")
+        return
 
-    id_paket = id_baru("paket_tryout", "id_paket")
-
-    if id_paket is None:
+    durasi = input_durasi("Durasi paket (menit): ", True)
+    if durasi is None:
+        print("Penambahan paket dibatalkan.")
         return
 
     hasil = jalankan_query(
         """
         INSERT INTO paket_tryout
-        (id_paket, nama_paket, deskripsi_paket, harga_paket,
-         durasi_waktu, id_pengguna)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        (nama_paket, deskripsi_paket, harga_paket,
+        durasi_waktu, id_pengguna)
+        VALUES (%s, %s, %s, %s, %s)
         """,
-        (id_paket, nama, deskripsi, harga, durasi, id_pengajar)
+        (nama, deskripsi, harga, durasi, id_pengajar)
     )
 
     if hasil is not None:
         print("Paket tryout berhasil ditambahkan.")
 
 
-def tambah_soal(id_pengajar):
+def nonaktifkan_paket(id_pengajar):
     garis()
-    print("TAMBAH SOAL TRYOUT")
+    print("NONAKTIFKAN PAKET TRYOUT")
     garis()
 
-    # Pengajar hanya dapat menambahkan soal pada paket miliknya.
     paket = jalankan_query(
         """
         SELECT id_paket, nama_paket
         FROM paket_tryout
         WHERE id_pengguna = %s
+          AND status_aktif = TRUE
+        ORDER BY id_paket
+        """,
+        (id_pengajar,),
+        True
+    )
+
+    if paket is None:
+        return
+
+    if not paket:
+        print("Belum ada paket aktif.")
+        return
+
+    for data in paket:
+        print(f"{data[0]}. {data[1]}")
+
+    id_paket = input_angka("\nMasukkan ID paket: ")
+
+    hasil = jalankan_query(
+        """
+        UPDATE paket_tryout
+        SET status_aktif = FALSE
+        WHERE id_paket = %s
+          AND id_pengguna = %s
+          AND status_aktif = TRUE
+        RETURNING id_paket
+        """,
+        (id_paket, id_pengajar),
+        True
+    )
+
+    if hasil is None:
+        return
+    if hasil:
+        print("Paket berhasil dinonaktifkan.")
+    else:
+        print("Paket tidak ditemukan atau bukan milik Anda.")
+
+
+def aktifkan_paket(id_pengajar):
+    garis()
+    print("AKTIFKAN KEMBALI PAKET TRYOUT")
+    garis()
+
+    paket = jalankan_query(
+        """
+        SELECT id_paket, nama_paket
+        FROM paket_tryout
+        WHERE id_pengguna = %s
+          AND status_aktif = FALSE
+        ORDER BY id_paket
+        """,
+        (id_pengajar,),
+        True
+    )
+
+    if paket is None:
+        return
+
+    if not paket:
+        print("Tidak ada paket yang perlu diaktifkan.")
+        return
+
+    for data in paket:
+        print(f"{data[0]}. {data[1]}")
+
+    id_paket = input_angka("\nMasukkan ID paket: ")
+
+    hasil = jalankan_query(
+        """
+        UPDATE paket_tryout
+        SET status_aktif = TRUE
+        WHERE id_paket = %s
+          AND id_pengguna = %s
+          AND status_aktif = FALSE
+        RETURNING id_paket
+        """,
+        (id_paket, id_pengajar),
+        True
+    )
+
+    if hasil:
+        print("Paket berhasil diaktifkan kembali.")
+    elif hasil is not None:
+        print("Paket tidak ditemukan atau bukan milik Anda.")
+
+
+def tambah_soal(id_pengajar):
+    garis()
+    print("TAMBAH SOAL TRYOUT")
+    print("Masukkan 0 kapan saja untuk kembali ke menu pengajar.")
+    garis()
+
+    paket = jalankan_query(
+        """
+        SELECT id_paket, nama_paket
+        FROM paket_tryout
+        WHERE id_pengguna = %s
+          AND status_aktif = TRUE
         ORDER BY id_paket
         """,
         (id_pengajar,),
@@ -850,7 +953,11 @@ def tambah_soal(id_pengajar):
     for data in paket:
         print(f"{data[0]}. {data[1]}")
 
-    id_paket = input_angka("Pilih ID paket: ")
+    id_paket = input_angka("Pilih ID paket: ", True)
+
+    if id_paket is None:
+        print("Penambahan soal dibatalkan.")
+        return
 
     paket_valid = False
     for data in paket:
@@ -862,35 +969,169 @@ def tambah_soal(id_pengajar):
         print("Paket tidak ditemukan atau bukan milikmu.")
         return
 
-    pertanyaan = input_teks("Pertanyaan : ")
-    pilihan_a = input_teks("Pilihan A  : ")
-    pilihan_b = input_teks("Pilihan B  : ")
-    pilihan_c = input_teks("Pilihan C  : ")
-    pilihan_d = input_teks("Pilihan D  : ")
+    pertanyaan = input_teks("Pertanyaan : ", True)
+    if pertanyaan is None:
+        print("Penambahan soal dibatalkan.")
+        return
 
-    kunci = input("Kunci (A/B/C/D): ").strip().upper()
-    while kunci not in ["A", "B", "C", "D"]:
-        print("Kunci jawaban harus A, B, C, atau D.")
+    pilihan_a = input_teks("Pilihan A  : ", True)
+    if pilihan_a is None:
+        print("Penambahan soal dibatalkan.")
+        return
+
+    pilihan_b = input_teks("Pilihan B  : ", True)
+    if pilihan_b is None:
+        print("Penambahan soal dibatalkan.")
+        return
+
+    pilihan_c = input_teks("Pilihan C  : ", True)
+    if pilihan_c is None:
+        print("Penambahan soal dibatalkan.")
+        return
+
+    pilihan_d = input_teks("Pilihan D  : ", True)
+    if pilihan_d is None:
+        print("Penambahan soal dibatalkan.")
+        return
+
+    print("\nMasukkan A, B, C, atau D sebagai kunci jawaban.")
+    print("Masukkan 0 untuk membatalkan penambahan soal.")
+
+    while True:
         kunci = input("Kunci (A/B/C/D): ").strip().upper()
 
-    id_soal = id_baru("soal", "id_soal")
+        if kunci == "0":
+            print("Penambahan soal dibatalkan.")
+            return
 
-    if id_soal is None:
-        return
+        if kunci in ["A", "B", "C", "D"]:
+            break
+
+        print("Kunci jawaban harus A, B, C, atau D.")
 
     hasil = jalankan_query(
         """
         INSERT INTO soal
-        (id_soal, pertanyaan, pilihan_a, pilihan_b,
-         pilihan_c, pilihan_d, kunci_jawaban, id_paket)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        (pertanyaan, pilihan_a, pilihan_b, pilihan_c,
+        pilihan_d, kunci_jawaban, id_paket)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        (id_soal, pertanyaan, pilihan_a, pilihan_b,
-         pilihan_c, pilihan_d, kunci, id_paket)
+        (pertanyaan, pilihan_a, pilihan_b, pilihan_c,
+         pilihan_d, kunci, id_paket)
     )
 
     if hasil is not None:
         print("Soal berhasil ditambahkan.")
+
+
+def nonaktifkan_soal(id_pengajar):
+    garis()
+    print("NONAKTIFKAN SOAL")
+    garis()
+
+    soal = jalankan_query(
+        """
+        SELECT s.id_soal, s.pertanyaan, p.nama_paket
+        FROM soal s
+        JOIN paket_tryout p ON s.id_paket = p.id_paket
+        WHERE p.id_pengguna = %s
+          AND p.status_aktif = TRUE
+          AND s.status_aktif = TRUE
+        ORDER BY s.id_soal
+        """,
+        (id_pengajar,),
+        True
+    )
+
+    if soal is None:
+        return
+
+    if not soal:
+        print("Belum ada soal aktif.")
+        return
+
+    for data in soal:
+        print(f"\nID Soal   : {data[0]}")
+        print(f"Pertanyaan: {data[1]}")
+        print(f"Paket     : {data[2]}")
+
+    id_soal = input_angka("\nMasukkan ID soal: ")
+
+    hasil = jalankan_query(
+        """
+        UPDATE soal s
+        SET status_aktif = FALSE
+        FROM paket_tryout p
+        WHERE s.id_paket = p.id_paket
+          AND s.id_soal = %s
+          AND p.id_pengguna = %s
+          AND s.status_aktif = TRUE
+        RETURNING s.id_soal
+        """,
+        (id_soal, id_pengajar),
+        True
+    )
+    if hasil is None:
+        return
+    if hasil:
+        print("Soal berhasil dinonaktifkan.")
+    else:
+        print("Soal tidak ditemukan atau bukan milik Anda.")
+
+
+def aktifkan_soal(id_pengajar):
+    garis()
+    print("AKTIFKAN KEMBALI SOAL")
+    garis()
+
+    soal = jalankan_query(
+        """
+        SELECT s.id_soal, s.pertanyaan, p.nama_paket
+        FROM soal s
+        JOIN paket_tryout p ON s.id_paket = p.id_paket
+        WHERE p.id_pengguna = %s
+          AND p.status_aktif = TRUE
+          AND s.status_aktif = FALSE
+        ORDER BY s.id_soal
+        """,
+        (id_pengajar,),
+        True
+    )
+
+    if soal is None:
+        return
+
+    if not soal:
+        print("Tidak ada soal yang perlu diaktifkan.")
+        return
+
+    for data in soal:
+        print(f"\nID Soal   : {data[0]}")
+        print(f"Pertanyaan: {data[1]}")
+        print(f"Paket     : {data[2]}")
+
+    id_soal = input_angka("\nMasukkan ID soal: ")
+
+    hasil = jalankan_query(
+        """
+        UPDATE soal s
+        SET status_aktif = TRUE
+        FROM paket_tryout p
+        WHERE s.id_paket = p.id_paket
+          AND s.id_soal = %s
+          AND p.id_pengguna = %s
+          AND p.status_aktif = TRUE
+          AND s.status_aktif = FALSE
+        RETURNING s.id_soal
+        """,
+        (id_soal, id_pengajar),
+        True
+    )
+
+    if hasil:
+        print("Soal berhasil diaktifkan kembali.")
+    elif hasil is not None:
+        print("Soal tidak ditemukan atau bukan milik Anda.")
 
 
 def pantau_hasil_pengajar(id_pengajar):
@@ -936,10 +1177,14 @@ def menu_pengajar(pengguna):
         print("2. Tambah paket tryout")
         print("3. Tambah soal")
         print("4. Pantau hasil peserta")
+        print("5. Nonaktifkan paket")
+        print("6. Nonaktifkan soal")
+        print("7. Aktifkan kembali paket")
+        print("8. Aktifkan kembali soal")
         print("0. Logout")
 
         pilihan = input_pilihan(
-            "Pilih menu: ", ["1", "2", "3", "4", "0"]
+            "Pilih menu: ", ["1", "2", "3", "4", "5", "6", "7", "8", "0"]
         )
 
         if pilihan == "1":
@@ -948,6 +1193,7 @@ def menu_pengajar(pengguna):
                 SELECT id_paket, nama_paket, harga_paket, durasi_waktu
                 FROM paket_tryout
                 WHERE id_pengguna = %s
+                  AND status_aktif = TRUE
                 ORDER BY id_paket
                 """,
                 (pengguna["id_pengguna"],),
@@ -969,6 +1215,18 @@ def menu_pengajar(pengguna):
             jeda()
         elif pilihan == "4":
             pantau_hasil_pengajar(pengguna["id_pengguna"])
+            jeda()
+        elif pilihan == "5":
+            nonaktifkan_paket(pengguna["id_pengguna"])
+            jeda()
+        elif pilihan == "6":
+            nonaktifkan_soal(pengguna["id_pengguna"])
+            jeda()
+        elif pilihan == "7":
+            aktifkan_paket(pengguna["id_pengguna"])
+            jeda()
+        elif pilihan == "8":
+            aktifkan_soal(pengguna["id_pengguna"])
             jeda()
         else:
             break
@@ -1016,11 +1274,27 @@ def tambah_pengajar():
     print("- Semua data wajib diisi.")
     print("- Gunakan format email yang benar.")
     print("- Password minimal 6 karakter.\n")
+    print("- Masukkan 0 kapan saja untuk kembali ke menu admin.\n")
 
-    nama = input_nama()
-    email = input_email()
-    username = input_teks("Username     : ")
-    password = input_password()
+    nama = input_nama(True)
+    if nama is None:
+        print("Penambahan akun pengajar dibatalkan.")
+        return
+
+    email = input_email(True)
+    if email is None:
+        print("Penambahan akun pengajar dibatalkan.")
+        return
+
+    username = input_teks("Username     : ", True)
+    if username is None:
+        print("Penambahan akun pengajar dibatalkan.")
+        return
+
+    password = input_password(True)
+    if password is None:
+        print("Penambahan akun pengajar dibatalkan.")
+        return
 
     email_duplikat = email_sudah_digunakan(email)
     if email_duplikat is None:
@@ -1036,18 +1310,14 @@ def tambah_pengajar():
         print("Username sudah digunakan. Gunakan username lain.")
         return
 
-    id_pengguna = id_baru("pengguna", "id_pengguna")
-
-    if id_pengguna is None:
-        return
 
     hasil = jalankan_query(
         """
-        INSERT INTO pengguna
-        (id_pengguna, nama_pengguna, email, username, password, id_role)
-        VALUES (%s, %s, %s, %s, %s, 2)
-        """,
-        (id_pengguna, nama, email, username, password)
+            INSERT INTO pengguna
+            (nama_pengguna, email, username, password, id_role)
+            VALUES (%s, %s, %s, %s, 2)
+       """,
+        (nama, email, username, password)
     )
 
     if hasil is not None:
