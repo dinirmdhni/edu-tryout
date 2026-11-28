@@ -1,3 +1,4 @@
+
 CREATE TABLE role (
 id_role INTEGER PRIMARY KEY,
 nama_role VARCHAR(30) NOT NULL
@@ -103,7 +104,7 @@ VALUES
  'Kemudahan memperoleh informasi perlu disertai sikap kritis dalam memeriksa kebenarannya.',
  'Semua informasi di internet dapat dipercaya.',
  'C', 3);
- SELECT * FROM soal;
+SELECT * FROM soal;
 
 CREATE TYPE status_pendaftaran_enum AS ENUM (
     'Menunggu',
@@ -127,7 +128,6 @@ VALUES
 (1, '2026-11-15', 'Diterima', 5, 1),
 (2, '2026-11-16', 'Diterima', 6, 2),
 (3, '2026-11-17', 'Diterima', 7, 3);
-
 SELECT * FROM pendaftaran;
 
 
@@ -138,17 +138,12 @@ CREATE TYPE status_pembayaran_enum AS ENUM (
     'Dikembalikan'
 );
 
-CREATE TYPE metode_pembayaran_enum AS ENUM (
-    'Tunai',
-    'Non Tunai'
-);
-
 CREATE TABLE pembayaran (
     id_pembayaran INTEGER PRIMARY KEY,
     tanggal_pembayaran TIMESTAMP,
     jumlah_pembayaran NUMERIC(12, 2) NOT NULL 
     CHECK (jumlah_pembayaran >= 0),
-    metode_pembayaran metode_pembayaran_enum NOT NULL,
+    metode_pembayaran VARCHAR(30) NOT NULL,
     status_pembayaran status_pembayaran_enum NOT NULL,
     id_pendaftaran INTEGER NOT NULL,
 	FOREIGN KEY (id_pendaftaran) REFERENCES
@@ -162,25 +157,17 @@ VALUES
 (2, '2026-11-16 10:00:00', 30000, 'Non Tunai', 'Berhasil', 2),
 (3, '2026-11-17 11:00:00', 25000, 'Tunai', 'Berhasil', 3);
 
-UPDATE pembayaran
-SET metode_pembayaran = 'Tunai'
-WHERE id_pembayaran = 1;
+--UPDATE pembayaran
+--SET metode_pembayaran = 'Tunai'
+--WHERE id_pembayaran = 1;
 
-UPDATE pembayaran
-SET metode_pembayaran = 'Non Tunai'
-WHERE id_pembayaran = 2;
+--UPDATE pembayaran
+--SET metode_pembayaran = 'Non Tunai'
+--WHERE id_pembayaran = 2;
 
-UPDATE pembayaran
-SET metode_pembayaran = 'Tunai'
-WHERE id_pembayaran = 3;
-
-DELETE FROM pembayaran
-WHERE id_pembayaran IN (4, 5);
-
-ALTER TABLE pembayaran
-ALTER COLUMN metode_pembayaran
-TYPE metode_pembayaran_enum
-USING metode_pembayaran::text::metode_pembayaran_enum;
+--UPDATE pembayaran
+--SET metode_pembayaran = 'Tunai'
+--WHERE id_pembayaran = 3;
 
 SELECT * FROM pembayaran
 ORDER BY id_pembayaran ASC;
@@ -197,36 +184,20 @@ CREATE TYPE status_pengerjaan_enum AS ENUM (
 
 CREATE TABLE pengerjaan_tryout (
     id_pengerjaan INTEGER PRIMARY KEY,
-    waktu_mulai TIMESTAMP NOT NULL,
-    waktu_selesai TIMESTAMP NOT NULL,
+    waktu_mulai TIMESTAMP,
+    waktu_selesai TIMESTAMP,
     status_pengerjaan status_pengerjaan_enum NOT NULL,
     id_pendaftaran INTEGER NOT NULL,
 	FOREIGN KEY (id_pendaftaran) REFERENCES pendaftaran(id_pendaftaran)
 );
-
-ALTER TABLE pengerjaan_tryout 
-ALTER COLUMN waktu_mulai SET NOT NULL;
-
-ALTER TABLE pengerjaan_tryout
-ALTER COLUMN waktu_selesai SET NOT NULL;
 
 INSERT INTO pengerjaan_tryout
 (id_pengerjaan, waktu_mulai, waktu_selesai, status_pengerjaan, id_pendaftaran)
 VALUES
 (1, '2026-11-15 09:30:00', '2026-11-15 10:30:00', 'Selesai', 1),
 (2, '2026-11-16 10:30:00', '2026-11-16 11:15:00', 'Selesai', 2),
-(3, '2026-11-17 11:30:00', '2026-11-17 12:15:00', 'Selesai', 3)
+(3, '2026-11-17 11:30:00', '2026-11-17 12:15:00', 'Selesai', 3);
 SELECT * FROM pengerjaan_tryout;
-
---ngecek aja
-SELECT
-    id_pengerjaan,
-    waktu_mulai,
-    waktu_selesai,
-    status_pengerjaan,
-    id_pendaftaran
-FROM pengerjaan_tryout;
---
 
 CREATE TABLE jawaban (
     id_jawaban INTEGER PRIMARY KEY,
@@ -238,9 +209,6 @@ CREATE TABLE jawaban (
     id_soal INTEGER NOT NULL,
 	FOREIGN KEY (id_soal) REFERENCES soal(id_soal)
 );
-
-ALTER TABLE jawaban
-ALTER COLUMN status_benar SET NOT NULL;
 
 INSERT INTO jawaban
 (id_jawaban, jawaban_peserta, status_benar, id_pengerjaan, id_soal)
@@ -254,7 +222,6 @@ VALUES
 
 (6, 'B', TRUE, 3, 6),
 (7, 'C', TRUE, 3, 7);
-
 SELECT * FROM jawaban;
 
 CREATE TABLE hasil_tryout (
@@ -272,9 +239,241 @@ INSERT INTO hasil_tryout
 VALUES
 (1, 66.67, 2, 1, '2026-11-15 10:35:00', 1),
 (2, 50.00, 1, 1, '2026-11-16 11:20:00', 2),
-(3, 100.00, 2, 0, '2026-11-17 12:20:00', 3;
+(3, 100.00, 2, 0, '2026-11-17 12:20:00', 3);
+SELECT * FROM hasil_tryout;
+
+--perbaikan id yg jadi pk biar auto increment 
+-- 1. Tabel role
+CREATE SEQUENCE IF NOT EXISTS role_id_role_seq;
+
+ALTER TABLE role
+ALTER COLUMN id_role SET DEFAULT nextval('role_id_role_seq');
+
+ALTER SEQUENCE role_id_role_seq
+OWNED BY role.id_role;
+
+SELECT setval(
+    'role_id_role_seq',
+    COALESCE((SELECT MAX(id_role) FROM role), 1),
+    EXISTS (SELECT 1 FROM role)
+);
+
+
+-- 2. Tabel pengguna
+CREATE SEQUENCE IF NOT EXISTS pengguna_id_pengguna_seq;
+
+ALTER TABLE pengguna
+ALTER COLUMN id_pengguna SET DEFAULT nextval('pengguna_id_pengguna_seq');
+
+ALTER SEQUENCE pengguna_id_pengguna_seq
+OWNED BY pengguna.id_pengguna;
+
+SELECT setval(
+    'pengguna_id_pengguna_seq',
+    COALESCE((SELECT MAX(id_pengguna) FROM pengguna), 1),
+    EXISTS (SELECT 1 FROM pengguna)
+);
+
+
+-- 3. Tabel paket_tryout
+CREATE SEQUENCE IF NOT EXISTS paket_tryout_id_paket_seq;
+
+ALTER TABLE paket_tryout
+ALTER COLUMN id_paket SET DEFAULT nextval('paket_tryout_id_paket_seq');
+
+ALTER SEQUENCE paket_tryout_id_paket_seq
+OWNED BY paket_tryout.id_paket;
+
+SELECT setval(
+    'paket_tryout_id_paket_seq',
+    COALESCE((SELECT MAX(id_paket) FROM paket_tryout), 1),
+    EXISTS (SELECT 1 FROM paket_tryout)
+);
+
+
+-- 4. Tabel soal
+CREATE SEQUENCE IF NOT EXISTS soal_id_soal_seq;
+
+ALTER TABLE soal
+ALTER COLUMN id_soal SET DEFAULT nextval('soal_id_soal_seq');
+
+ALTER SEQUENCE soal_id_soal_seq
+OWNED BY soal.id_soal;
+
+SELECT setval(
+    'soal_id_soal_seq',
+    COALESCE((SELECT MAX(id_soal) FROM soal), 1),
+    EXISTS (SELECT 1 FROM soal)
+);
+
+
+-- 5. Tabel pendaftaran
+CREATE SEQUENCE IF NOT EXISTS pendaftaran_id_pendaftaran_seq;
+
+ALTER TABLE pendaftaran
+ALTER COLUMN id_pendaftaran SET DEFAULT nextval('pendaftaran_id_pendaftaran_seq');
+
+ALTER SEQUENCE pendaftaran_id_pendaftaran_seq
+OWNED BY pendaftaran.id_pendaftaran;
+
+SELECT setval(
+    'pendaftaran_id_pendaftaran_seq',
+    COALESCE((SELECT MAX(id_pendaftaran) FROM pendaftaran), 1),
+    EXISTS (SELECT 1 FROM pendaftaran)
+);
+
+
+-- 6. Tabel pembayaran
+CREATE SEQUENCE IF NOT EXISTS pembayaran_id_pembayaran_seq;
+
+ALTER TABLE pembayaran
+ALTER COLUMN id_pembayaran SET DEFAULT nextval('pembayaran_id_pembayaran_seq');
+
+ALTER SEQUENCE pembayaran_id_pembayaran_seq
+OWNED BY pembayaran.id_pembayaran;
+
+SELECT setval(
+    'pembayaran_id_pembayaran_seq',
+    COALESCE((SELECT MAX(id_pembayaran) FROM pembayaran), 1),
+    EXISTS (SELECT 1 FROM pembayaran)
+);
+
+
+-- 7. Tabel pengerjaan_tryout
+CREATE SEQUENCE IF NOT EXISTS pengerjaan_tryout_id_pengerjaan_seq;
+
+ALTER TABLE pengerjaan_tryout
+ALTER COLUMN id_pengerjaan SET DEFAULT nextval('pengerjaan_tryout_id_pengerjaan_seq');
+
+ALTER SEQUENCE pengerjaan_tryout_id_pengerjaan_seq
+OWNED BY pengerjaan_tryout.id_pengerjaan;
+
+SELECT setval(
+    'pengerjaan_tryout_id_pengerjaan_seq',
+    COALESCE((SELECT MAX(id_pengerjaan) FROM pengerjaan_tryout), 1),
+    EXISTS (SELECT 1 FROM pengerjaan_tryout)
+);
+
+
+-- 8. Tabel jawaban
+CREATE SEQUENCE IF NOT EXISTS jawaban_id_jawaban_seq;
+
+ALTER TABLE jawaban
+ALTER COLUMN id_jawaban SET DEFAULT nextval('jawaban_id_jawaban_seq');
+
+ALTER SEQUENCE jawaban_id_jawaban_seq
+OWNED BY jawaban.id_jawaban;
+
+SELECT setval(
+    'jawaban_id_jawaban_seq',
+    COALESCE((SELECT MAX(id_jawaban) FROM jawaban), 1),
+    EXISTS (SELECT 1 FROM jawaban)
+);
+
+
+-- 9. Tabel hasil_tryout
+CREATE SEQUENCE IF NOT EXISTS hasil_tryout_id_hasil_seq;
 
 ALTER TABLE hasil_tryout
-DROP COLUMN tanggal_penilaian;
+ALTER COLUMN id_hasil SET DEFAULT nextval('hasil_tryout_id_hasil_seq');
 
-SELECT * FROM hasil_tryout;
+ALTER SEQUENCE hasil_tryout_id_hasil_seq
+OWNED BY hasil_tryout.id_hasil;
+
+SELECT setval(
+    'hasil_tryout_id_hasil_seq',
+    COALESCE((SELECT MAX(id_hasil) FROM hasil_tryout), 1),
+    EXISTS (SELECT 1 FROM hasil_tryout)
+);
+
+--periksa
+SELECT
+    column_name,
+    column_default
+FROM information_schema.columns
+WHERE table_name = 'pengguna'
+AND column_name = 'id_pengguna';
+
+SELECT
+    table_name,
+    column_name,
+    column_default
+FROM information_schema.columns
+WHERE column_name IN (
+    'id_role',
+    'id_pengguna',
+    'id_paket',
+    'id_soal',
+    'id_pendaftaran',
+    'id_pembayaran',
+    'id_pengerjaan',
+    'id_jawaban',
+    'id_hasil'
+)
+ORDER BY table_name;
+
+SELECT
+    conname AS nama_constraint,
+    pg_get_constraintdef(oid) AS aturan
+FROM pg_constraint
+WHERE conrelid = 'paket_tryout'::regclass
+  AND contype = 'c';
+
+SELECT id_paket, nama_paket, harga_paket
+FROM paket_tryout
+WHERE harga_paket < 10000;
+
+SELECT id_paket, nama_paket, durasi_waktu
+FROM paket_tryout
+WHERE durasi_waktu < 10;
+
+--ganti constraint
+ALTER TABLE paket_tryout
+DROP CONSTRAINT paket_tryout_harga_paket_check,
+DROP CONSTRAINT paket_tryout_durasi_waktu_check;
+
+ALTER TABLE paket_tryout
+ADD CONSTRAINT paket_tryout_harga_paket_check
+CHECK (harga_paket >= 10000);
+
+ALTER TABLE paket_tryout
+ADD CONSTRAINT paket_tryout_durasi_waktu_check
+CHECK (durasi_waktu >= 10);
+
+--
+UPDATE paket_tryout
+SET harga_paket = 10000,
+    durasi_waktu = 10
+WHERE id_paket = 5;
+
+--
+SELECT
+    conname AS nama_constraint,
+    pg_get_constraintdef(oid) AS aturan
+FROM pg_constraint
+WHERE conrelid = 'paket_tryout'::regclass
+  AND contype = 'c';
+
+ALTER TABLE paket_tryout
+ADD COLUMN status_aktif BOOLEAN NOT NULL DEFAULT TRUE;
+
+ALTER TABLE soal
+ADD COLUMN status_aktif BOOLEAN NOT NULL DEFAULT TRUE;
+
+--cek
+SELECT id_paket, nama_paket, status_aktif
+FROM paket_tryout
+ORDER BY id_paket;
+
+SELECT
+    p.id_paket,
+    p.nama_paket,
+    p.id_pengguna,
+    u.nama_pengguna
+FROM paket_tryout p
+JOIN pengguna u ON p.id_pengguna = u.id_pengguna
+WHERE p.id_paket = 6;
+
+--soalnya klo not null itu dari awal peserta ngerjain udh ke record padahal blm selesai ngerjain
+ALTER TABLE pengerjaan_tryout
+ALTER COLUMN waktu_selesai DROP NOT NULL;
